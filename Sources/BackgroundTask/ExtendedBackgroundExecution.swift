@@ -71,9 +71,7 @@ extension Task where Success == Never, Failure == Never {
         return try await withTaskCancellationHandler {
             try await expiringTask.value
         } onCancel: {
-            Task.detached {
-                await expiringTask.cancel()
-            }
+            expiringTask.cancel()
         }
     }
 }

@@ -5,83 +5,120 @@
 //  Created by Jaehong Kang on 2022/04/02.
 //
 
-import Dispatch
+@preconcurrency import Dispatch
 import Foundation
 
-public actor ExpiringTask<Success, Failure>: Sendable where Success: Sendable, Failure: Error {
-    private let dispatchGroup = DispatchGroup()
-    private var task: Task<Success, Failure>!
+public struct ExpiringTask<Success, Failure>: Sendable where Success: Sendable, Failure: Error {
+    public actor Expiration {
+        fileprivate var expiringTask: ExpiringTask<Success, Failure>?
 
-    private init() {
-        dispatchGroup.enter()
-    }
+        public func callAsFunction() {
+            expiringTask?.expire()
+        }
 
-    private convenience init(_ taskHandler: @escaping @Sendable (DispatchGroup, @escaping @Sendable () -> Void) -> Task<Success, Failure>) {
-        self.init()
-
-        Task.detached { [self] in
-            await self.setTask(taskHandler(dispatchGroup, expire))
+        fileprivate func setExpiringTask(_ expiringTask: ExpiringTask<Success, Failure>) {
+            self.expiringTask = expiringTask
         }
     }
 
-    private func setTask(_ task: Task<Success, Failure>) {
+    private let dispatchGroup: DispatchGroup
+    private let task: Task<Success, Failure>
+
+    private init(dispatchGroup: DispatchGroup, task: Task<Success, Failure>) {
+        self.dispatchGroup = dispatchGroup
         self.task = task
     }
 }
 
 extension ExpiringTask where Failure == Never {
     @discardableResult
-    public convenience init(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping @Sendable () -> Void) async -> Success) {
-        self.init { dispatchGroup, expire in
-            Task(priority: priority) {
+    public init(priority: TaskPriority? = nil, operation: @escaping @Sendable (Expiration) async -> Success) {
+        let dispatchGroup = DispatchGroup()
+        let expiration = Expiration()
+
+        self.init(
+            dispatchGroup: dispatchGroup,
+            task: Task(priority: priority) {
                 defer {
                     dispatchGroup.leave()
                 }
 
-                return await operation(expire)
+                return await operation(expiration)
             }
+        )
+
+        Task.detached { [self] in
+            await expiration.setExpiringTask(self)
         }
     }
 
     @discardableResult
-    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping @Sendable () -> Void) async -> Success) -> ExpiringTask<Success, Failure> {
-        ExpiringTask { dispatchGroup, expire in
-            Task.detached(priority: priority) {
+    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (Expiration) async -> Success) -> ExpiringTask<Success, Failure> {
+        let dispatchGroup = DispatchGroup()
+        let expiration = Expiration()
+
+        let expiringTask = self.init(
+            dispatchGroup: dispatchGroup,
+            task: Task.detached(priority: priority) {
                 defer {
                     dispatchGroup.leave()
                 }
 
-                return await operation(expire)
+                return await operation(expiration)
             }
+        )
+
+        Task.detached {
+            await expiration.setExpiringTask(expiringTask)
         }
+
+        return expiringTask
     }
 }
 
 extension ExpiringTask where Failure == Error {
     @discardableResult
-    public convenience init(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping @Sendable () -> Void) async throws -> Success) {
-        self.init { dispatchGroup, expire in
-            Task(priority: priority) {
+    public init(priority: TaskPriority? = nil, operation: @escaping @Sendable (Expiration) async throws -> Success) {
+        let dispatchGroup = DispatchGroup()
+        let expiration = Expiration()
+
+        self.init(
+            dispatchGroup: dispatchGroup,
+            task: Task(priority: priority) {
                 defer {
                     dispatchGroup.leave()
                 }
 
-                return try await operation(expire)
+                return try await operation(expiration)
             }
+        )
+
+        Task.detached { [self] in
+            await expiration.setExpiringTask(self)
         }
     }
 
     @discardableResult
-    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping @Sendable () -> Void) async throws -> Success) -> ExpiringTask<Success, Failure> {
-        ExpiringTask { dispatchGroup, expire in
-            Task.detached(priority: priority) {
+    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (Expiration) async throws -> Success) -> ExpiringTask<Success, Failure> {
+        let dispatchGroup = DispatchGroup()
+        let expiration = Expiration()
+
+        let expiringTask = self.init(
+            dispatchGroup: dispatchGroup,
+            task: Task.detached(priority: priority) {
                 defer {
                     dispatchGroup.leave()
                 }
 
-                return try await operation(expire)
+                return try await operation(expiration)
             }
+        )
+
+        Task.detached {
+            await expiration.setExpiringTask(expiringTask)
         }
+
+        return expiringTask
     }
 }
 
@@ -89,7 +126,7 @@ extension ExpiringTask {
     @Sendable
     public nonisolated func expire() {
         Task.detached {
-            await self.cancel()
+        self.cancel()
         }
         dispatchGroup.wait()
     }
@@ -121,14 +158,5 @@ extension ExpiringTask where Failure == Never {
     }
 }
 
-extension ExpiringTask: Hashable {
-    public nonisolated func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self))
-    }
-}
-
-extension ExpiringTask: Equatable {
-    public static func == (lhs: ExpiringTask<Success, Failure>, rhs: ExpiringTask<Success, Failure>) -> Bool {
-        lhs === rhs
-    }
-}
+extension ExpiringTask: Hashable { }
+extension ExpiringTask: Equatable { }
