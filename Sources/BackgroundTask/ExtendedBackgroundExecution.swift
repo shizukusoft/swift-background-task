@@ -22,18 +22,14 @@ extension Task where Success == Never, Failure == Never {
     }
 
     return try await Task.$isInExtendedBackgroundExecution.withValue(true) {
-        let expiringTask = ExpiringTask(priority: priority) {
-            try await body()
-        }
-
-        return try await withTaskCancellationHandler {
+        let expiringTask = ExpiringTask(priority: priority) { task -> T in
             #if os(macOS)
             let token = ProcessInfo.processInfo.beginActivity(options: [.idleSystemSleepDisabled, .suddenTerminationDisabled, .automaticTerminationDisabled], reason: identifier)
             defer {
                 ProcessInfo.processInfo.endActivity(token)
             }
 
-            return try await expiringTask.value
+            return try await body()
             #else
             let dispatchGroup = DispatchGroup()
             dispatchGroup.enter()
@@ -47,7 +43,7 @@ extension Task where Success == Never, Failure == Never {
                 ProcessInfo.processInfo.performExpiringActivity(withReason: identifier) { expired in
                     if expired {
                         logger.notice("\(identifier, privacy: .public): Expiring activity expired")
-                        expiringTask.cancel()
+                        task.cancel()
                         logger.notice("\(identifier, privacy: .public): Expiring activity expirationHandler finished")
                     } else {
                         logger.info("\(identifier, privacy: .public): Start expiring activity")
@@ -61,19 +57,23 @@ extension Task where Success == Never, Failure == Never {
                     logger.notice("\(identifier, privacy: .public): Finished with cancelled: \(Task.isCancelled)")
                 }
 
-                return try await expiringTask.value
+                return try await body()
             } else {
                 ProcessInfo.processInfo.performExpiringActivity(withReason: identifier) { expired in
                     if expired {
-                        expiringTask.cancel()
+                        task.cancel()
                     } else {
                         dispatchGroup.wait()
                     }
                 }
 
-                return try await expiringTask.value
+                return try await body()
             }
             #endif
+        }
+
+        return try await withTaskCancellationHandler {
+            try await expiringTask.value
         } onCancel: {
             expiringTask.cancel()
         }

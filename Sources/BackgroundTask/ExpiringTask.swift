@@ -14,31 +14,31 @@ public struct ExpiringTask<Success, Failure>: Sendable where Success: Sendable, 
 }
 
 extension ExpiringTask where Failure == Never {
-    public init(priority: TaskPriority? = nil, operation: @escaping @Sendable () async -> Success) {
+    public init(priority: TaskPriority? = nil, operation: @escaping @Sendable (ExpiringTask) async -> Success) {
         self.init()
 
         dispatchGroup.enter()
-        self.task = Task(priority: priority) { [dispatchGroup] in
+        self.task = Task(priority: priority) { [self, dispatchGroup] in
             defer {
                 dispatchGroup.leave()
             }
 
-            return await operation()
+            return await operation(self)
         }
     }
 }
 
 extension ExpiringTask where Failure == Error {
-    public init(priority: TaskPriority? = nil, operation: @escaping @Sendable () async throws -> Success) {
+    public init(priority: TaskPriority? = nil, operation: @escaping @Sendable (ExpiringTask) async throws -> Success) {
         self.init()
 
         dispatchGroup.enter()
-        self.task = Task(priority: priority) { [dispatchGroup] in
+        self.task = Task(priority: priority) { [self, dispatchGroup] in
             defer {
                 dispatchGroup.leave()
             }
 
-            return try await operation()
+            return try await operation(self)
         }
     }
 }
