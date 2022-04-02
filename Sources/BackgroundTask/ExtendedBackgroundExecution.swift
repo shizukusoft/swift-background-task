@@ -5,7 +5,22 @@
 //  Created by Jaehong Kang on 2022/04/02.
 //
 
+#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
 import Foundation
+import os
+
+fileprivate let log = OSLog(subsystem: moduleIdentifier, category: "extended-background-execution")
+
+@available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
+fileprivate let logger = Logger(log)
+
+fileprivate func log(identifier: String, level: OSLogType, _ message: String) {
+    if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
+        logger.log(level: level, "\(identifier, privacy: .public): \(message, privacy: .public)")
+    } else {
+        os_log("%{public}@: %{public}@", log: log, type: level, identifier, message)
+    }
+}
 
 extension Task where Success == Never, Failure == Never {
     @TaskLocal fileprivate static var isInExtendedBackgroundExecution: Bool = false
@@ -66,3 +81,4 @@ extension Task where Success == Never, Failure == Never {
 @Sendable @inlinable public func withExtendedBackgroundExecution<T>(function: String = #function, fileID: String = #fileID, line: Int = #line, priority: TaskPriority? = nil, body: @escaping () async throws -> T) async rethrows -> T {
     try await withExtendedBackgroundExecution(identifier: "\(function) (\(fileID):\(line))", priority: priority, body: body)
 }
+#endif
