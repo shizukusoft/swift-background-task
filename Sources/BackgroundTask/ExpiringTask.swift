@@ -9,15 +9,11 @@
 import Foundation
 
 public struct ExpiringTask<Success, Failure>: Sendable where Success: Sendable, Failure: Error {
-    public actor Expiration {
+    public class Expiration {
         fileprivate var expiringTask: ExpiringTask<Success, Failure>?
 
         public func callAsFunction() {
             expiringTask?.expire()
-        }
-
-        fileprivate func setExpiringTask(_ expiringTask: ExpiringTask<Success, Failure>) {
-            self.expiringTask = expiringTask
         }
     }
 
@@ -47,9 +43,7 @@ extension ExpiringTask where Failure == Never {
             }
         )
 
-        Task.detached { [self] in
-            await expiration.setExpiringTask(self)
-        }
+        expiration.expiringTask = self
     }
 
     @discardableResult
@@ -68,9 +62,7 @@ extension ExpiringTask where Failure == Never {
             }
         )
 
-        Task.detached {
-            await expiration.setExpiringTask(expiringTask)
-        }
+        expiration.expiringTask = expiringTask
 
         return expiringTask
     }
@@ -93,9 +85,7 @@ extension ExpiringTask where Failure == Error {
             }
         )
 
-        Task.detached { [self] in
-            await expiration.setExpiringTask(self)
-        }
+        expiration.expiringTask = self
     }
 
     @discardableResult
@@ -114,9 +104,7 @@ extension ExpiringTask where Failure == Error {
             }
         )
 
-        Task.detached {
-            await expiration.setExpiringTask(expiringTask)
-        }
+        expiration.expiringTask = expiringTask
 
         return expiringTask
     }
