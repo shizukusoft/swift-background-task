@@ -36,22 +36,49 @@ public actor ExpiringTask<Success, Failure>: Sendable where Success: Sendable, F
 }
 
 extension ExpiringTask {
-    public nonisolated var value: Success {
+    @Sendable
+    public nonisolated func expire() {
+        Task.detached {
+            await self.cancel()
+        }
+        dispatchGroup.wait()
+    }
+}
+
+extension ExpiringTask {
+    public var value: Success {
         get async throws {
             try await task.value
         }
     }
 
-    public nonisolated var result: Result<Success, Failure> {
+    public var result: Result<Success, Failure> {
         get async {
             await task.result
         }
     }
 
-    public nonisolated func cancel() {
-        Task.detached {
-            await self.task.cancel()
+    public func cancel() {
+        task.cancel()
+    }
+}
+
+extension ExpiringTask where Failure == Never {
+    public var value: Success {
+        get async {
+            await task.value
         }
-        dispatchGroup.wait()
+    }
+}
+
+extension ExpiringTask: Hashable {
+    public nonisolated func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+}
+
+extension ExpiringTask: Equatable {
+    public static func == (lhs: ExpiringTask<Success, Failure>, rhs: ExpiringTask<Success, Failure>) -> Bool {
+        lhs === rhs
     }
 }

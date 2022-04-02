@@ -6,11 +6,6 @@
 //
 
 import Foundation
-#if !os(macOS)
-import os
-#endif
-
-let moduleIdentifier = "com.tweetnest.BackgroundTask"
 
 extension Task where Success == Never, Failure == Never {
     @TaskLocal fileprivate static var isInExtendedBackgroundExecution: Bool = false
@@ -37,45 +32,33 @@ extension Task where Success == Never, Failure == Never {
                 dispatchGroup.leave()
             }
 
-            if #available(iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
-                let logger = Logger(subsystem: moduleIdentifier, category: "extended-background-execution")
-
-                ProcessInfo.processInfo.performExpiringActivity(withReason: identifier) { expired in
-                    if expired {
-                        logger.notice("\(identifier, privacy: .public): Expiring activity expired")
-                        task.cancel()
-                        logger.notice("\(identifier, privacy: .public): Expiring activity expirationHandler finished")
-                    } else {
-                        logger.info("\(identifier, privacy: .public): Start expiring activity")
-                        dispatchGroup.wait()
-                        logger.info("\(identifier, privacy: .public): Expiring activity finished")
-                    }
+            ProcessInfo.processInfo.performExpiringActivity(withReason: identifier) { expired in
+                if expired {
+                    log(identifier: identifier, level: .default, "Expiring activity expired")
+                    task.expire()
+                    log(identifier: identifier, level: .default, "Expiring activity expirationHandler finished")
+                } else {
+                    log(identifier: identifier, level: .info, "Start expiring activity")
+                    dispatchGroup.wait()
+                    log(identifier: identifier, level: .info, "Expiring activity finished")
                 }
-
-                logger.notice("\(identifier, privacy: .public): Start")
-                defer {
-                    logger.notice("\(identifier, privacy: .public): Finished with cancelled: \(Task.isCancelled)")
-                }
-
-                return try await body()
-            } else {
-                ProcessInfo.processInfo.performExpiringActivity(withReason: identifier) { expired in
-                    if expired {
-                        task.cancel()
-                    } else {
-                        dispatchGroup.wait()
-                    }
-                }
-
-                return try await body()
             }
+
+            log(identifier: identifier, level: .default, "Start")
+            defer {
+                log(identifier: identifier, level: .default, "Finished with cancelled: \(Task.isCancelled)")
+            }
+
+            return try await body()
             #endif
         }
 
         return try await withTaskCancellationHandler {
             try await expiringTask.value
         } onCancel: {
-            expiringTask.cancel()
+            Task.detached {
+                await expiringTask.cancel()
+            }
         }
     }
 }
