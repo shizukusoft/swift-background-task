@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "BackgroundTask",
+    name: "swift-background-task",
     platforms: [
         .macOS(.v10_15),
         .iOS(.v14),
