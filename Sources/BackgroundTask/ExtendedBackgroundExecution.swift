@@ -32,7 +32,7 @@ extension Task where Success == Never, Failure == Never {
     }
 
     return try await Task.$isInExtendedBackgroundExecution.withValue(true) {
-        let expiringTask = ExpiringTask(priority: priority) { task -> T in
+        let expiringTask = ExpiringTask(priority: priority) { expire -> T in
             #if os(macOS)
             let token = ProcessInfo.processInfo.beginActivity(options: [.idleSystemSleepDisabled, .suddenTerminationDisabled, .automaticTerminationDisabled], reason: identifier)
             defer {
@@ -50,7 +50,7 @@ extension Task where Success == Never, Failure == Never {
             ProcessInfo.processInfo.performExpiringActivity(withReason: identifier) { expired in
                 if expired {
                     log(identifier: identifier, level: .default, "Expiring activity expired")
-                    task.expire()
+                    expire()
                     log(identifier: identifier, level: .default, "Expiring activity expirationHandler finished")
                 } else {
                     log(identifier: identifier, level: .info, "Start expiring activity")

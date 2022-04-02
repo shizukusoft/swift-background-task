@@ -16,11 +16,11 @@ public actor ExpiringTask<Success, Failure>: Sendable where Success: Sendable, F
         dispatchGroup.enter()
     }
 
-    private convenience init(_ taskHandler: @escaping @Sendable (ExpiringTask) -> Task<Success, Failure>) {
+    private convenience init(_ taskHandler: @escaping @Sendable (DispatchGroup, @escaping @Sendable () -> Void) -> Task<Success, Failure>) {
         self.init()
 
-        Task.detached {
-            await self.setTask(taskHandler(self))
+        Task.detached { [self] in
+            await self.setTask(taskHandler(dispatchGroup, expire))
         }
     }
 
@@ -30,52 +30,52 @@ public actor ExpiringTask<Success, Failure>: Sendable where Success: Sendable, F
 }
 
 extension ExpiringTask where Failure == Never {
-    public convenience init(priority: TaskPriority? = nil, operation: @escaping @Sendable (ExpiringTask) async -> Success) {
-        self.init { expiringTask in
-            Task(priority: priority) { [dispatchGroup = expiringTask.dispatchGroup] in
+    public convenience init(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping @Sendable () -> Void) async -> Success) {
+        self.init { dispatchGroup, expire in
+            Task(priority: priority) {
                 defer {
                     dispatchGroup.leave()
                 }
 
-                return await operation(expiringTask)
+                return await operation(expire)
             }
         }
     }
 
-    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (ExpiringTask) async -> Success) -> ExpiringTask<Success, Failure> {
-        ExpiringTask { expiringTask in
-            Task.detached(priority: priority) { [dispatchGroup = expiringTask.dispatchGroup] in
+    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping @Sendable () -> Void) async -> Success) -> ExpiringTask<Success, Failure> {
+        ExpiringTask { dispatchGroup, expire in
+            Task.detached(priority: priority) {
                 defer {
                     dispatchGroup.leave()
                 }
 
-                return await operation(expiringTask)
+                return await operation(expire)
             }
         }
     }
 }
 
 extension ExpiringTask where Failure == Error {
-    public convenience init(priority: TaskPriority? = nil, operation: @escaping @Sendable (ExpiringTask) async throws -> Success) {
-        self.init { expiringTask in
-            Task(priority: priority) { [dispatchGroup = expiringTask.dispatchGroup] in
+    public convenience init(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping @Sendable () -> Void) async throws -> Success) {
+        self.init { dispatchGroup, expire in
+            Task(priority: priority) {
                 defer {
                     dispatchGroup.leave()
                 }
 
-                return try await operation(expiringTask)
+                return try await operation(expire)
             }
         }
     }
 
-    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (ExpiringTask) async throws -> Success) -> ExpiringTask<Success, Failure> {
-        ExpiringTask { expiringTask in
-            Task.detached(priority: priority) { [dispatchGroup = expiringTask.dispatchGroup] in
+    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping @Sendable () -> Void) async throws -> Success) -> ExpiringTask<Success, Failure> {
+        ExpiringTask { dispatchGroup, expire in
+            Task.detached(priority: priority) {
                 defer {
                     dispatchGroup.leave()
                 }
 
-                return try await operation(expiringTask)
+                return try await operation(expire)
             }
         }
     }
