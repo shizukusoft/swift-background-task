@@ -32,7 +32,7 @@ extension Task where Success == Never, Failure == Never {
     }
 
     return try await Task.$isInExtendedBackgroundExecution.withValue(true) {
-        let expiringTask = ExpiringTask(priority: priority) { expire -> T in
+        let expiringTask = Task.expiring(priority: priority) { expire -> T in
             #if os(macOS)
             let token = ProcessInfo.processInfo.beginActivity(options: [.idleSystemSleepDisabled, .suddenTerminationDisabled, .automaticTerminationDisabled], reason: identifier)
             defer {
