@@ -30,6 +30,7 @@ public actor ExpiringTask<Success, Failure>: Sendable where Success: Sendable, F
 }
 
 extension ExpiringTask where Failure == Never {
+    @discardableResult
     public convenience init(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping @Sendable () -> Void) async -> Success) {
         self.init { dispatchGroup, expire in
             Task(priority: priority) {
@@ -42,6 +43,7 @@ extension ExpiringTask where Failure == Never {
         }
     }
 
+    @discardableResult
     public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping @Sendable () -> Void) async -> Success) -> ExpiringTask<Success, Failure> {
         ExpiringTask { dispatchGroup, expire in
             Task.detached(priority: priority) {
@@ -56,6 +58,7 @@ extension ExpiringTask where Failure == Never {
 }
 
 extension ExpiringTask where Failure == Error {
+    @discardableResult
     public convenience init(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping @Sendable () -> Void) async throws -> Success) {
         self.init { dispatchGroup, expire in
             Task(priority: priority) {
@@ -68,6 +71,7 @@ extension ExpiringTask where Failure == Error {
         }
     }
 
+    @discardableResult
     public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping @Sendable () -> Void) async throws -> Success) -> ExpiringTask<Success, Failure> {
         ExpiringTask { dispatchGroup, expire in
             Task.detached(priority: priority) {
