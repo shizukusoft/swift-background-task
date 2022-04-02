@@ -5,32 +5,78 @@
 //  Created by Jaehong Kang on 2022/04/02.
 //
 
-@preconcurrency import Dispatch
+import Dispatch
 import Foundation
 
 public actor ExpiringTask<Success, Failure>: Sendable where Success: Sendable, Failure: Error {
     private let dispatchGroup = DispatchGroup()
     private var task: Task<Success, Failure>!
 
-    public init(priority: TaskPriority? = nil, operation: @escaping @Sendable (ExpiringTask) async -> Success) async where Failure == Never {
+    private init() {
         dispatchGroup.enter()
-        self.task = Task(priority: priority) { [dispatchGroup] in
-            defer {
-                dispatchGroup.leave()
-            }
+    }
 
-            return await operation(self)
+    private convenience init(_ taskHandler: @escaping @Sendable (ExpiringTask) -> Task<Success, Failure>) {
+        self.init()
+
+        Task.detached {
+            await self.setTask(taskHandler(self))
         }
     }
 
-    public init(priority: TaskPriority? = nil, operation: @escaping @Sendable (ExpiringTask) async throws -> Success) async where Failure == Error {
-        dispatchGroup.enter()
-        self.task = Task(priority: priority) { [dispatchGroup] in
-            defer {
-                dispatchGroup.leave()
-            }
+    private func setTask(_ task: Task<Success, Failure>) {
+        self.task = task
+    }
+}
 
-            return try await operation(self)
+extension ExpiringTask where Failure == Never {
+    public convenience init(priority: TaskPriority? = nil, operation: @escaping @Sendable (ExpiringTask) async -> Success) {
+        self.init { expiringTask in
+            Task(priority: priority) { [dispatchGroup = expiringTask.dispatchGroup] in
+                defer {
+                    dispatchGroup.leave()
+                }
+
+                return await operation(expiringTask)
+            }
+        }
+    }
+
+    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (ExpiringTask) async -> Success) -> ExpiringTask<Success, Failure> {
+        ExpiringTask { expiringTask in
+            Task.detached(priority: priority) { [dispatchGroup = expiringTask.dispatchGroup] in
+                defer {
+                    dispatchGroup.leave()
+                }
+
+                return await operation(expiringTask)
+            }
+        }
+    }
+}
+
+extension ExpiringTask where Failure == Error {
+    public convenience init(priority: TaskPriority? = nil, operation: @escaping @Sendable (ExpiringTask) async throws -> Success) {
+        self.init { expiringTask in
+            Task(priority: priority) { [dispatchGroup = expiringTask.dispatchGroup] in
+                defer {
+                    dispatchGroup.leave()
+                }
+
+                return try await operation(expiringTask)
+            }
+        }
+    }
+
+    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (ExpiringTask) async throws -> Success) -> ExpiringTask<Success, Failure> {
+        ExpiringTask { expiringTask in
+            Task.detached(priority: priority) { [dispatchGroup = expiringTask.dispatchGroup] in
+                defer {
+                    dispatchGroup.leave()
+                }
+
+                return try await operation(expiringTask)
+            }
         }
     }
 }
