@@ -9,11 +9,17 @@
 import Foundation
 
 public struct ExpiringTask<Success, Failure>: Sendable where Success: Sendable, Failure: Error {
-    public class Expiration {
-        fileprivate var expiringTask: ExpiringTask<Success, Failure>?
+    private class Expiration {
+        var expiringTask: ExpiringTask<Success, Failure>?
 
-        public func callAsFunction() {
-            expiringTask?.expire()
+        func expire() {
+            guard let expiringTask = expiringTask else { return }
+
+            Task.detached {
+                expiringTask.cancel()
+            }
+
+            expiringTask.dispatchGroup.wait()
         }
     }
 
@@ -28,10 +34,11 @@ public struct ExpiringTask<Success, Failure>: Sendable where Success: Sendable, 
 
 extension ExpiringTask where Failure == Never {
     @discardableResult
-    public init(priority: TaskPriority? = nil, operation: @escaping @Sendable (Expiration) async -> Success) {
+    public init(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping () -> Void) async -> Success) {
         let dispatchGroup = DispatchGroup()
         let expiration = Expiration()
 
+        dispatchGroup.enter()
         self.init(
             dispatchGroup: dispatchGroup,
             task: Task(priority: priority) {
@@ -39,7 +46,7 @@ extension ExpiringTask where Failure == Never {
                     dispatchGroup.leave()
                 }
 
-                return await operation(expiration)
+                return await operation(expiration.expire)
             }
         )
 
@@ -47,10 +54,11 @@ extension ExpiringTask where Failure == Never {
     }
 
     @discardableResult
-    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (Expiration) async -> Success) -> ExpiringTask<Success, Failure> {
+    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping () -> Void) async -> Success) -> ExpiringTask<Success, Failure> {
         let dispatchGroup = DispatchGroup()
         let expiration = Expiration()
 
+        dispatchGroup.enter()
         let expiringTask = self.init(
             dispatchGroup: dispatchGroup,
             task: Task.detached(priority: priority) {
@@ -58,7 +66,7 @@ extension ExpiringTask where Failure == Never {
                     dispatchGroup.leave()
                 }
 
-                return await operation(expiration)
+                return await operation(expiration.expire)
             }
         )
 
@@ -70,10 +78,11 @@ extension ExpiringTask where Failure == Never {
 
 extension ExpiringTask where Failure == Error {
     @discardableResult
-    public init(priority: TaskPriority? = nil, operation: @escaping @Sendable (Expiration) async throws -> Success) {
+    public init(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping () -> Void) async throws -> Success) {
         let dispatchGroup = DispatchGroup()
         let expiration = Expiration()
 
+        dispatchGroup.enter()
         self.init(
             dispatchGroup: dispatchGroup,
             task: Task(priority: priority) {
@@ -81,7 +90,7 @@ extension ExpiringTask where Failure == Error {
                     dispatchGroup.leave()
                 }
 
-                return try await operation(expiration)
+                return try await operation(expiration.expire)
             }
         )
 
@@ -89,10 +98,11 @@ extension ExpiringTask where Failure == Error {
     }
 
     @discardableResult
-    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (Expiration) async throws -> Success) -> ExpiringTask<Success, Failure> {
+    public static func detached(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping () -> Void) async throws -> Success) -> ExpiringTask<Success, Failure> {
         let dispatchGroup = DispatchGroup()
         let expiration = Expiration()
 
+        dispatchGroup.enter()
         let expiringTask = self.init(
             dispatchGroup: dispatchGroup,
             task: Task.detached(priority: priority) {
@@ -100,23 +110,13 @@ extension ExpiringTask where Failure == Error {
                     dispatchGroup.leave()
                 }
 
-                return try await operation(expiration)
+                return try await operation(expiration.expire)
             }
         )
 
         expiration.expiringTask = expiringTask
 
         return expiringTask
-    }
-}
-
-extension ExpiringTask {
-    @Sendable
-    public nonisolated func expire() {
-        Task.detached {
-        self.cancel()
-        }
-        dispatchGroup.wait()
     }
 }
 
