@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        operating-system: ["ubuntu-18.04", "macos-11", "macos-12"]
+        operating-system: ["ubuntu-18.04", "ubuntu-20.04", "macos-11", "macos-12"]
         swift-version: ["5.5.3", "5.6"]
         exclude:
           - operating-system: "macos-11"
