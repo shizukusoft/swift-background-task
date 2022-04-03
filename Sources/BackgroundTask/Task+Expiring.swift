@@ -24,7 +24,10 @@ extension Task {
 
 extension Task where Failure == Never {
     @discardableResult
-    public static func expiring(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping () -> Void) async -> Success) -> Task<Success, Failure> {
+    public static func expiring(
+        priority: TaskPriority? = nil,
+        operation: @escaping @Sendable (@escaping () -> Void) async -> Success
+    ) -> Task<Success, Failure> {
         let expiration = Expiration()
         expiration.dispatchGroup.enter()
 
@@ -42,7 +45,10 @@ extension Task where Failure == Never {
     }
 
     @discardableResult
-    public static func expiringDetached(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping () -> Void) async -> Success) -> Task<Success, Failure> {
+    public static func expiringDetached(
+        priority: TaskPriority? = nil,
+        operation: @escaping @Sendable (@escaping () -> Void) async -> Success
+    ) -> Task<Success, Failure> {
         let expiration = Expiration()
         expiration.dispatchGroup.enter()
 
@@ -62,7 +68,10 @@ extension Task where Failure == Never {
 
 extension Task where Failure == Error {
     @discardableResult
-    public static func expiring(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping () -> Void) async throws -> Success) -> Task<Success, Failure> {
+    public static func expiring(
+        priority: TaskPriority? = nil,
+        operation: @escaping @Sendable (@escaping () -> Void) async throws -> Success
+    ) -> Task<Success, Failure> {
         let expiration = Expiration()
         expiration.dispatchGroup.enter()
 
@@ -80,7 +89,10 @@ extension Task where Failure == Error {
     }
 
     @discardableResult
-    public static func expiringDetached(priority: TaskPriority? = nil, operation: @escaping @Sendable (@escaping () -> Void) async throws -> Success) -> Task<Success, Failure> {
+    public static func expiringDetached(
+        priority: TaskPriority? = nil,
+        operation: @escaping @Sendable (@escaping () -> Void) async throws -> Success
+    ) -> Task<Success, Failure> {
         let expiration = Expiration()
         expiration.dispatchGroup.enter()
 

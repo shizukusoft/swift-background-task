@@ -39,7 +39,10 @@ public func withExtendedBackgroundExecution<T>(
     return try await Task.$isInExtendedBackgroundExecution.withValue(true) {
         let expiringTask = Task.expiring(priority: priority) { expire -> T in
             #if os(macOS)
-            let token = ProcessInfo.processInfo.beginActivity(options: [.idleSystemSleepDisabled, .suddenTerminationDisabled, .automaticTerminationDisabled], reason: identifier)
+            let token = ProcessInfo.processInfo.beginActivity(
+                options: [.idleSystemSleepDisabled, .suddenTerminationDisabled, .automaticTerminationDisabled],
+                reason: identifier
+            )
             defer {
                 ProcessInfo.processInfo.endActivity(token)
             }
@@ -89,6 +92,10 @@ public func withExtendedBackgroundExecution<T>(
     priority: TaskPriority? = nil,
     body: @escaping () async throws -> T
 ) async rethrows -> T {
-    try await withExtendedBackgroundExecution(identifier: "\(function) (\(fileID):\(line))", priority: priority, body: body)
+    try await withExtendedBackgroundExecution(
+        identifier: "\(function) (\(fileID):\(line))",
+        priority: priority,
+        body: body
+    )
 }
 #endif

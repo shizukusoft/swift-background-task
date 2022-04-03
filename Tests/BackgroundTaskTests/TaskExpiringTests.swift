@@ -57,7 +57,7 @@ class TaskExpiringTests: XCTestCase {
 
         let taskCancelExpectation = XCTestExpectation(description: "Task Cancel Expectation")
 
-        let task = Task.expiring { expire in
+        let task = Task.expiring { _ in
             defer {
                 taskEndedExpectation.fulfill()
                 XCTAssertEqual(Task.isCancelled, true)
