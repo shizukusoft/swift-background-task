@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: sinoru/actions-setup-xcode@v2
-        if: ${{ (matrix.operating-system == "macos-11") || matrix.operating-system == "macos-12" }}
+        if: ${{ (matrix.operating-system == 'macos-11') || (matrix.operating-system == 'macos-12') }}
         with:
           xcode-version: "13.3"
           apple-id: ${{ secrets.APPLE_ID }}
