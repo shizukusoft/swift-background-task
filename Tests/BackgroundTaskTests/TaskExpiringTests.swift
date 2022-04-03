@@ -42,7 +42,11 @@ class TaskExpiringTests: XCTestCase {
             }
         }
 
-        wait(for: [taskEndedExpectation, taskExpireExpectation, taskFinishedExpectation], timeout: 10.0, enforceOrder: true)
+        wait(
+            for: [taskEndedExpectation, taskExpireExpectation, taskFinishedExpectation],
+            timeout: 10.0,
+            enforceOrder: true
+        )
     }
 
     func testCancel() async throws {
@@ -69,15 +73,19 @@ class TaskExpiringTests: XCTestCase {
             taskCancelExpectation.fulfill()
         }
 
-        wait(for: [taskCancelExpectation, taskEndedExpectation, taskFinishedExpectation], timeout: 10.0, enforceOrder: true)
+        wait(
+            for: [taskCancelExpectation, taskEndedExpectation, taskFinishedExpectation],
+            timeout: 10.0,
+            enforceOrder: true
+        )
     }
 
     @discardableResult
     private static func doStuff() async -> Bool {
-        for i in Int.min...Int.max {
+        for value in Int64.min...Int64.max {
             guard Task.isCancelled == false else { return false }
 
-            _ = i
+            _ = value
         }
 
         return true
