@@ -1,0 +1,65 @@
+name: Test
+
+on:
+  push:
+    paths-ignore:
+    - CHANGELOG.md
+    - LICENSE
+    - README.md
+
+env:
+  APPLE_ID: "bot@sinoru.io"
+  APP_STORE_CONNECT_API_KEY_PATH: "APIKey.json"
+  KEYCHAIN_NAME: "build.keychain"
+  RUBY_VERSION: 2.7
+  XCODE_VERSION: 12.4
+      
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        operating-system: ["ubuntu-18.04", "macos-11"]
+        swift-version: ["5.5.3", "5.6"]
+    runs-on: ${{ matrix.operating-system }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: sinoru/actions-setup-swift@v2
+        with:
+          swift-version: ${{ matrix.swift-version }}
+      - name: Build
+        run: swift build
+        env:
+          SWIFT_VERSION: ${{ matrix.swift-version }}
+      - name: Run tests
+        run: swift test
+        env:
+          SWIFT_VERSION: ${{ matrix.swift-version }}
+
+  test-xcode:
+    strategy:
+      fail-fast: false
+      matrix:
+        operating-system: ["macos-11"]
+        xcode-version: ["13.3"]
+        xcode-destination: [
+          "platform=OS X,arch=x86_64",
+          "platform=OS X,arch=x86_64,variant=Mac Catalyst",
+          "platform=iOS Simulator,name=iPhone 8,OS=latest",
+          "platform=tvOS Simulator,name=Apple TV 4K,OS=latest",
+          "platform=watchOS Simulator,name=Apple Watch Series 4 - 44mm,OS=latest",
+        ]
+    runs-on: ${{ matrix.operating-system }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: sinoru/actions-setup-xcode@v2
+        with:
+          xcode-version: ${{ matrix.xcode-version }}
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-id-password: ${{ secrets.APPLE_ID_PASSWORD }}
+      - name: Resolve Package Dependencies
+        run: xcodebuild -resolvePackageDependencies
+      - name: Analyze
+        run: xcodebuild -scheme TwitterKit -destination '${{ matrix.xcode-destination }}' analyze
+      - name: Test
+        run: xcodebuild -scheme TwitterKit -destination '${{ matrix.xcode-destination }}' test
