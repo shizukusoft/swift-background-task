@@ -19,16 +19,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        operating-system: ["ubuntu-18.04", "ubuntu-20.04", "macos-11", "macos-12"]
+        operating-system: ["ubuntu-18.04", "ubuntu-20.04", "macos-12"]
         swift-version: ["5.5.3", "5.6"]
-        exclude:
-          - operating-system: "macos-11"
-            swift-version: "5.5.3"
     runs-on: ${{ matrix.operating-system }}
     steps:
       - uses: actions/checkout@v2
       - uses: sinoru/actions-setup-xcode@v2
-        if: ${{ (matrix.operating-system == 'macos-11') || (matrix.operating-system == 'macos-12') }}
+        if: ${{ startsWith(matrix.operating-system, 'macos') }}
         with:
           xcode-version: "13.2.1"
           apple-id: ${{ secrets.APPLE_ID }}
@@ -69,6 +66,6 @@ jobs:
       - name: Resolve Package Dependencies
         run: xcodebuild -resolvePackageDependencies
       - name: Analyze
-        run: xcodebuild -scheme swift-background-kit -destination '${{ matrix.xcode-destination }}' analyze
+        run: xcodebuild -scheme swift-background-task -destination '${{ matrix.xcode-destination }}' analyze
       - name: Test
-        run: xcodebuild -scheme swift-background-kit -destination '${{ matrix.xcode-destination }}' test
+        run: xcodebuild -scheme swift-background-task -destination '${{ matrix.xcode-destination }}' test
