@@ -52,8 +52,8 @@ jobs:
           "platform=OS X,arch=x86_64",
           "platform=OS X,arch=x86_64,variant=Mac Catalyst",
           "platform=iOS Simulator,name=iPhone 8,OS=latest",
-          "platform=tvOS Simulator,name=Apple TV 4K,OS=latest",
-          "platform=watchOS Simulator,name=Apple Watch Series 4 - 44mm,OS=latest",
+          "platform=tvOS Simulator,name=Apple TV 4K (2nd generation),OS=latest",
+          "platform=watchOS Simulator,name=Apple Watch Series 5 - 44mm,OS=latest",
         ]
     runs-on: ${{ matrix.operating-system }}
     steps:
