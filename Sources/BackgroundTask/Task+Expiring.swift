@@ -9,15 +9,18 @@ import Foundation
 
 extension Task {
     private class Expiration {
-        let dispatchGroup = DispatchGroup()
+        private let dispatchSemaphore = DispatchSemaphore(value: 0)
         var task: Task?
 
         func expire() {
-            if let task = task {
-                task.cancel()
-            }
+            guard let task = task else { return }
 
-            dispatchGroup.wait()
+            task.cancel()
+            dispatchSemaphore.wait()
+        }
+
+        func finish() {
+            dispatchSemaphore.signal()
         }
     }
 }
@@ -29,11 +32,10 @@ extension Task where Failure == Never {
         operation: @escaping @Sendable (@escaping () -> Void) async -> Success
     ) -> Task<Success, Failure> {
         let expiration = Expiration()
-        expiration.dispatchGroup.enter()
 
         let task = Task(priority: priority) {
             defer {
-                expiration.dispatchGroup.leave()
+                expiration.finish()
             }
 
             return await operation(expiration.expire)
@@ -50,11 +52,10 @@ extension Task where Failure == Never {
         operation: @escaping @Sendable (@escaping () -> Void) async -> Success
     ) -> Task<Success, Failure> {
         let expiration = Expiration()
-        expiration.dispatchGroup.enter()
 
         let task = Task.detached(priority: priority) {
             defer {
-                expiration.dispatchGroup.leave()
+                expiration.finish()
             }
 
             return await operation(expiration.expire)
@@ -73,11 +74,10 @@ extension Task where Failure == Error {
         operation: @escaping @Sendable (@escaping () -> Void) async throws -> Success
     ) -> Task<Success, Failure> {
         let expiration = Expiration()
-        expiration.dispatchGroup.enter()
 
         let task = Task(priority: priority) {
             defer {
-                expiration.dispatchGroup.leave()
+                expiration.finish()
             }
 
             return try await operation(expiration.expire)
@@ -94,11 +94,10 @@ extension Task where Failure == Error {
         operation: @escaping @Sendable (@escaping () -> Void) async throws -> Success
     ) -> Task<Success, Failure> {
         let expiration = Expiration()
-        expiration.dispatchGroup.enter()
 
         let task = Task.detached(priority: priority) {
             defer {
-                expiration.dispatchGroup.leave()
+                expiration.finish()
             }
 
             return try await operation(expiration.expire)

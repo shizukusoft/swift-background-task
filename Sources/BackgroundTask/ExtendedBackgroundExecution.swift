@@ -49,10 +49,9 @@ public func withExtendedBackgroundExecution<T>(
 
             return try await body()
             #else
-            let dispatchGroup = DispatchGroup()
-            dispatchGroup.enter()
+            let dispatchSemaphore = DispatchSemaphore(value: 0)
             defer {
-                dispatchGroup.leave()
+                dispatchSemaphore.signal()
             }
 
             ProcessInfo.processInfo.performExpiringActivity(withReason: identifier) { expired in
@@ -62,7 +61,7 @@ public func withExtendedBackgroundExecution<T>(
                     log(identifier: identifier, level: .default, "Expiring activity expirationHandler finished")
                 } else {
                     log(identifier: identifier, level: .info, "Start expiring activity")
-                    dispatchGroup.wait()
+                    dispatchSemaphore.wait()
                     log(identifier: identifier, level: .info, "Expiring activity finished")
                 }
             }
