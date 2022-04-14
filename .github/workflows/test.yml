@@ -30,7 +30,7 @@ jobs:
       - uses: sinoru/actions-setup-xcode@v2
         if: ${{ (matrix.operating-system == 'macos-11') || (matrix.operating-system == 'macos-12') }}
         with:
-          xcode-version: "13.3"
+          xcode-version: "13.2.1"
           apple-id: ${{ secrets.APPLE_ID }}
           apple-id-password: ${{ secrets.APPLE_ID_PASSWORD }}
       - uses: sinoru/actions-setup-swift@v2
