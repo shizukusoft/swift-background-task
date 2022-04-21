@@ -33,10 +33,15 @@ public func withExtendedBackgroundExecution<T>(identifier: String, expirationHan
     }
 
     #if os(macOS)
-    let token = ProcessInfo.processInfo.beginActivity(options: [.idleSystemSleepDisabled, .suddenTerminationDisabled, .automaticTerminationDisabled], reason: identifier)
+    let token = ProcessInfo.processInfo.beginActivity(
+        options: [.idleSystemSleepDisabled, .suddenTerminationDisabled, .automaticTerminationDisabled],
+        reason: identifier
+    )
     defer {
         ProcessInfo.processInfo.endActivity(token)
     }
+
+    return try body()
     #else
     let dispatchSemaphore = DispatchSemaphore(value: 0)
     defer {
@@ -54,7 +59,6 @@ public func withExtendedBackgroundExecution<T>(identifier: String, expirationHan
             log(identifier: identifier, level: .info, "Expiring activity finished")
         }
     }
-    #endif
 
     log(identifier: identifier, level: .default, "Start")
     defer {
@@ -62,6 +66,7 @@ public func withExtendedBackgroundExecution<T>(identifier: String, expirationHan
     }
 
     return try body()
+    #endif
 }
 
 extension Task where Success == Never, Failure == Never {
@@ -79,18 +84,18 @@ public func withExtendedBackgroundExecution<T>(
     }
 
     return try await Task.$isInExtendedBackgroundExecution.withValue(true) {
-        let expiringTask = Task.expiring(priority: priority) { expire -> T in
-            #if os(macOS)
-            let token = ProcessInfo.processInfo.beginActivity(
-                options: [.idleSystemSleepDisabled, .suddenTerminationDisabled, .automaticTerminationDisabled],
-                reason: identifier
-            )
-            defer {
-                ProcessInfo.processInfo.endActivity(token)
-            }
+        #if os(macOS)
+        let token = ProcessInfo.processInfo.beginActivity(
+            options: [.idleSystemSleepDisabled, .suddenTerminationDisabled, .automaticTerminationDisabled],
+            reason: identifier
+        )
+        defer {
+            ProcessInfo.processInfo.endActivity(token)
+        }
 
-            return try await body()
-            #else
+        return try await body()
+        #else
+        let expiringTask = Task.expiring(priority: priority) { expire -> T in
             let dispatchSemaphore = DispatchSemaphore(value: 0)
             defer {
                 dispatchSemaphore.signal()
@@ -114,7 +119,6 @@ public func withExtendedBackgroundExecution<T>(
             }
 
             return try await body()
-            #endif
         }
 
         return try await withTaskCancellationHandler {
@@ -122,6 +126,7 @@ public func withExtendedBackgroundExecution<T>(
         } onCancel: {
             expiringTask.cancel()
         }
+        #endif
     }
 }
 
