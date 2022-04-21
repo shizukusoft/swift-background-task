@@ -23,11 +23,21 @@ private func log(identifier: String, level: OSLogType, _ message: String) {
 }
 
 @inlinable
-public func withExtendedBackgroundExecution<T>(function: String = #function, fileID: String = #fileID, line: Int = #line, expirationHandler: (@Sendable () -> Void)? = nil, body: () throws -> T) rethrows -> T {
+public func withExtendedBackgroundExecution<T>(
+    function: String = #function,
+    fileID: String = #fileID,
+    line: Int = #line,
+    expirationHandler: (@Sendable () -> Void)? = nil,
+    body: () throws -> T
+) rethrows -> T {
     try withExtendedBackgroundExecution(identifier: "\(function) (\(fileID):\(line))", expirationHandler: expirationHandler, body: body)
 }
 
-public func withExtendedBackgroundExecution<T>(identifier: String, expirationHandler: (@Sendable () -> Void)? = nil, body: () throws -> T) rethrows -> T {
+public func withExtendedBackgroundExecution<T>(
+    identifier: String,
+    expirationHandler: (@Sendable () -> Void)? = nil,
+    body: () throws -> T
+) rethrows -> T {
     guard Task.isInExtendedBackgroundExecution == false else {
         return try body()
     }
