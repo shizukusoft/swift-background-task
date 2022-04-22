@@ -22,6 +22,12 @@ private func log(identifier: String, level: OSLogType, _ message: String) {
     }
 }
 
+let isInExtendedBackgroundExecutionKey = moduleName + ".IsInExtendedBackgroundExecution"
+
+extension Task where Success == Never, Failure == Never {
+    @TaskLocal static var isInExtendedBackgroundExecution: Bool = false
+}
+
 @inlinable
 public func withExtendedBackgroundExecution<T>(
     function: String = #function,
@@ -38,8 +44,16 @@ public func withExtendedBackgroundExecution<T>(
     expirationHandler: (@Sendable () -> Void)? = nil,
     body: () throws -> T
 ) rethrows -> T {
-    guard Task.isInExtendedBackgroundExecution == false else {
+    guard
+        Task.isInExtendedBackgroundExecution == false ||
+            Thread.current.threadDictionary.object(forKey: isInExtendedBackgroundExecutionKey) == nil
+    else {
         return try body()
+    }
+
+    Thread.current.threadDictionary.setValue(true, forKey: isInExtendedBackgroundExecutionKey)
+    defer {
+        Thread.current.threadDictionary.removeObject(forKey: isInExtendedBackgroundExecutionKey)
     }
 
     #if os(macOS)
@@ -77,10 +91,6 @@ public func withExtendedBackgroundExecution<T>(
 
     return try body()
     #endif
-}
-
-extension Task where Success == Never, Failure == Never {
-    @TaskLocal fileprivate static var isInExtendedBackgroundExecution: Bool = false
 }
 
 @Sendable

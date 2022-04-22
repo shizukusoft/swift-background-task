@@ -2,10 +2,23 @@ import XCTest
 @testable import BackgroundTask
 
 final class BackgroundTaskTests: XCTestCase {
-    func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct
-        // results.
-        // XCTAssertEqual(BackgroundTask().text, "Hello, World!")
+    func testIsInExtendedBackgroundExecutionValueInThread() throws {
+        XCTAssertNil(Thread.current.threadDictionary.value(forKey: isInExtendedBackgroundExecutionKey))
+
+        withExtendedBackgroundExecution {
+            XCTAssertNotNil(Thread.current.threadDictionary.value(forKey: isInExtendedBackgroundExecutionKey))
+        }
+
+        XCTAssertNil(Thread.current.threadDictionary.value(forKey: isInExtendedBackgroundExecutionKey))
+    }
+
+    func testIsInExtendedBackgroundExecutionValueInTask() async throws {
+        XCTAssertEqual(Task.isInExtendedBackgroundExecution, false)
+
+        await withExtendedBackgroundExecution(priority: .medium) {
+            XCTAssertEqual(Task.isInExtendedBackgroundExecution, true)
+        }
+
+        XCTAssertEqual(Task.isInExtendedBackgroundExecution, false)
     }
 }
