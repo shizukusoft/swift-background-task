@@ -11,7 +11,7 @@ on:
       - '**/*.swift'
 
 jobs:
-  test:
+  swift:
     strategy:
       fail-fast: false
       matrix:
@@ -38,7 +38,7 @@ jobs:
         env:
           SWIFT_VERSION: ${{ matrix.swift-version }}
 
-  test-xcode:
+  xcode:
     strategy:
       fail-fast: false
       matrix:
