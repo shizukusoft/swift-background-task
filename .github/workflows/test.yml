@@ -2,25 +2,21 @@ name: Test
 
 on:
   push:
-    paths-ignore:
-    - CHANGELOG.md
-    - LICENSE
-    - README.md
+    paths:
+      - '.github/workflows/test.yml'
+      - '**/*.swift'
+  pull_request:
+    paths:
+      - '.github/workflows/test.yml'
+      - '**/*.swift'
 
-env:
-  APPLE_ID: "bot@sinoru.io"
-  APP_STORE_CONNECT_API_KEY_PATH: "APIKey.json"
-  KEYCHAIN_NAME: "build.keychain"
-  RUBY_VERSION: 2.7
-  XCODE_VERSION: 12.4
-      
 jobs:
   test:
     strategy:
       fail-fast: false
       matrix:
         operating-system: ["ubuntu-18.04", "ubuntu-20.04", "macos-12"]
-        swift-version: ["5.5.3", "5.6"]
+        swift-version: ["5.5.3", "5.6.1"]
     runs-on: ${{ matrix.operating-system }}
     steps:
       - uses: actions/checkout@v2
@@ -47,7 +43,7 @@ jobs:
       fail-fast: false
       matrix:
         operating-system: ["macos-12"]
-        xcode-version: ["13.3"]
+        xcode-version: ["13.3.1"]
         xcode-destination: [
           "platform=OS X,arch=x86_64",
           "platform=OS X,arch=x86_64,variant=Mac Catalyst",
