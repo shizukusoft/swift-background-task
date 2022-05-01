@@ -73,17 +73,7 @@ public func withExtendedBackgroundExecution<T>(
         Thread.current.threadDictionary.removeObject(forKey: ExtendedBackgroundExecution.isInExtendedBackgroundExecutionKey as NSString)
     }
 
-    #if os(macOS)
-    let token = ProcessInfo.processInfo.beginActivity(
-        options: [.idleSystemSleepDisabled, .suddenTerminationDisabled, .automaticTerminationDisabled],
-        reason: identifier
-    )
-    defer {
-        ProcessInfo.processInfo.endActivity(token)
-    }
-
-    return try body()
-    #elseif os(iOS) || os(watchOS) || os(tvOS)
+    #if os(iOS) || os(watchOS) || os(tvOS)
     let activitySemaphore = DispatchSemaphore(value: 0)
     defer {
         activitySemaphore.signal()
@@ -120,6 +110,16 @@ public func withExtendedBackgroundExecution<T>(
 
     return try body()
     #else
+    #if os(macOS)
+    let token = ProcessInfo.processInfo.beginActivity(
+        options: [.idleSystemSleepDisabled, .suddenTerminationDisabled, .automaticTerminationDisabled],
+        reason: identifier
+    )
+    defer {
+        ProcessInfo.processInfo.endActivity(token)
+    }
+    #endif
+
     return try body()
     #endif
 }

@@ -19,19 +19,7 @@ public func withExtendedBackgroundExecution<T>(
         return try await body()
     }
 
-    #if os(macOS)
-    let token = ProcessInfo.processInfo.beginActivity(
-        options: [.idleSystemSleepDisabled, .suddenTerminationDisabled, .automaticTerminationDisabled],
-        reason: identifier
-    )
-    defer {
-        ProcessInfo.processInfo.endActivity(token)
-    }
-
-    return try await ExtendedBackgroundExecution.$isInExtendedBackgroundExecution.withValue(true) {
-        try await body()
-    }
-    #elseif os(iOS) || os(watchOS) || os(tvOS)
+    #if os(iOS) || os(watchOS) || os(tvOS)
     let taskPriority = Task.currentPriority
 
     let task: Task<T, Error> = try await withCheckedThrowingContinuation { continuation in
@@ -74,6 +62,16 @@ public func withExtendedBackgroundExecution<T>(
         task.cancel()
     }
     #else
+    #if os(macOS)
+    let token = ProcessInfo.processInfo.beginActivity(
+        options: [.idleSystemSleepDisabled, .suddenTerminationDisabled, .automaticTerminationDisabled],
+        reason: identifier
+    )
+    defer {
+        ProcessInfo.processInfo.endActivity(token)
+    }
+    #endif
+
     return try await ExtendedBackgroundExecution.$isInExtendedBackgroundExecution.withValue(true) {
         try await body()
     }
