@@ -5,7 +5,9 @@
 //  Created by Jaehong Kang on 2022/05/01.
 //
 
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
 import Foundation
+#endif
 
 @Sendable
 public func withExtendedBackgroundExecution<T>(

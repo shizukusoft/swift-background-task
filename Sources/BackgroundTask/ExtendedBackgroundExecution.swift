@@ -5,13 +5,11 @@
 //  Created by Jaehong Kang on 2022/04/02.
 //
 
+import Foundation
 import Dispatch
 import UnifiedLogging
 #if canImport(os)
 import os
-#endif
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
-import Foundation
 #endif
 
 public struct TaskAssertionError: Error {
@@ -25,7 +23,7 @@ struct ExtendedBackgroundExecution {
     @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
     static let logger = Logger(log)
     #else
-    static let logger = Logger(subsystem: moduleIdentifier, category: "extended-background-execution")
+    static let logger = Logger(label: moduleIdentifier, category: "extended-background-execution")
     #endif
 
     #if canImport(os)
