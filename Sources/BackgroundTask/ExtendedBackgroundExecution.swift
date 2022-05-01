@@ -16,7 +16,9 @@ public struct TaskAssertionError: Error {
     public init() {}
 }
 
-struct ExtendedBackgroundExecution {
+struct ExtendedBackgroundExecution { }
+
+extension ExtendedBackgroundExecution {
     #if canImport(os)
     static let log = OSLog(subsystem: moduleIdentifier, category: "extended-background-execution")
 
@@ -39,7 +41,9 @@ struct ExtendedBackgroundExecution {
         logger.log(level: level, "\(identifier): \(message)")
     }
     #endif
+}
 
+extension ExtendedBackgroundExecution {
     static let isInExtendedBackgroundExecutionKey = moduleName + ".IsInExtendedBackgroundExecution"
 
     @TaskLocal static var isInExtendedBackgroundExecution: Bool = false
