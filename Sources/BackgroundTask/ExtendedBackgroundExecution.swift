@@ -68,9 +68,9 @@ public func withExtendedBackgroundExecution<T>(
         return try body()
     }
 
-    Thread.current.threadDictionary.setValue(true, forKey: ExtendedBackgroundExecution.isInExtendedBackgroundExecutionKey)
+    Thread.current.threadDictionary.setObject(true as NSNumber, forKey: ExtendedBackgroundExecution.isInExtendedBackgroundExecutionKey as NSString)
     defer {
-        Thread.current.threadDictionary.removeObject(forKey: ExtendedBackgroundExecution.isInExtendedBackgroundExecutionKey)
+        Thread.current.threadDictionary.removeObject(forKey: ExtendedBackgroundExecution.isInExtendedBackgroundExecutionKey as NSString)
     }
 
     #if os(macOS)
