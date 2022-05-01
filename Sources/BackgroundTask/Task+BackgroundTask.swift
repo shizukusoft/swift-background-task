@@ -8,10 +8,12 @@
 import Dispatch
 
 extension Task {
+    @inlinable
     public func waitUntilFinished() async {
         _ = try? await value
     }
 
+    @inlinable
     public func waitUntilFinished() {
         let semaphore = DispatchSemaphore(value: 0)
 
