@@ -5,8 +5,9 @@
 //  Created by Jaehong Kang on 2022/04/02.
 //
 
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
 import Foundation
-import Dispatch
+#endif
 import UnifiedLogging
 #if canImport(os)
 import os
@@ -44,75 +45,61 @@ extension ExtendedBackgroundExecution {
 }
 
 extension ExtendedBackgroundExecution {
-    static let isInExtendedBackgroundExecutionKey = moduleName + ".IsInExtendedBackgroundExecution"
-
     @TaskLocal static var isInExtendedBackgroundExecution: Bool = false
 }
 
-@inlinable
-public func withExtendedBackgroundExecution<T>(
-    function: String = #function,
-    fileID: String = #fileID,
-    line: Int = #line,
-    expirationHandler: (@Sendable () -> Void)? = nil,
-    body: () throws -> T
-) throws -> T {
-    try withExtendedBackgroundExecution(identifier: "\(function) (\(fileID):\(line))", expirationHandler: expirationHandler, body: body)
-}
-
+@Sendable
 public func withExtendedBackgroundExecution<T>(
     identifier: String,
-    expirationHandler: (@Sendable () -> Void)? = nil,
-    body: () throws -> T
-) throws -> T {
-    guard
-        ExtendedBackgroundExecution.isInExtendedBackgroundExecution == false ||
-            Thread.current.threadDictionary.object(forKey: ExtendedBackgroundExecution.isInExtendedBackgroundExecutionKey) == nil
-    else {
-        return try body()
-    }
-
-    Thread.current.threadDictionary.setObject(true as NSNumber, forKey: ExtendedBackgroundExecution.isInExtendedBackgroundExecutionKey as NSString)
-    defer {
-        Thread.current.threadDictionary.removeObject(forKey: ExtendedBackgroundExecution.isInExtendedBackgroundExecutionKey as NSString)
+    priority: TaskPriority? = nil,
+    body: @escaping () async throws -> T
+) async throws -> T {
+    guard ExtendedBackgroundExecution.isInExtendedBackgroundExecution == false else {
+        return try await body()
     }
 
     #if os(iOS) || os(watchOS) || os(tvOS)
-    let activitySemaphore = DispatchSemaphore(value: 0)
-    defer {
-        activitySemaphore.signal()
-    }
+    let taskPriority = Task.currentPriority
 
-    let taskAssertionSemaphore = DispatchSemaphore(value: 0)
-    var isTaskAsserted: Bool = false
+    let task: Task<T, Error> = try await withCheckedThrowingContinuation { continuation in
+        var currentTask: Task<T, Error>?
 
-    ProcessInfo.processInfo.performExpiringActivity(withReason: identifier) { expired in
-        isTaskAsserted = !expired
-        taskAssertionSemaphore.signal()
+        ProcessInfo.processInfo.performExpiringActivity(withReason: identifier) { expired in
+            switch (currentTask, expired) {
+            case (nil, true):
+                continuation.resume(throwing: TaskAssertionError())
+            case (nil, false):
+                ExtendedBackgroundExecution.log(level: .info, identifier: identifier, "Start expiring activity")
+                let task = Task<T, Error>(priority: taskPriority) {
+                    ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Start")
+                    defer {
+                        ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Finished with cancelled: \(Task.isCancelled)")
+                    }
 
-        if expired {
-            ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Expiring activity expired")
-            expirationHandler?()
-            ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Expiring activity expirationHandler finished")
-        } else {
-            ExtendedBackgroundExecution.log(level: .info, identifier: identifier, "Start expiring activity")
-            activitySemaphore.wait()
-            ExtendedBackgroundExecution.log(level: .info, identifier: identifier, "Expiring activity finished")
+                    return try await ExtendedBackgroundExecution.$isInExtendedBackgroundExecution.withValue(true) {
+                        try await body()
+                    }
+                }
+                currentTask = task
+                continuation.resume(returning: task)
+                task.waitUntilFinished()
+                ExtendedBackgroundExecution.log(level: .info, identifier: identifier, "Expiring activity finished")
+            case (.some(let currentTask), true):
+                ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Expiring activity expired")
+                currentTask.cancel()
+                currentTask.waitUntilFinished()
+                ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Expiring activity expirationHandler finished")
+            default:
+                fatalError()
+            }
         }
     }
 
-    taskAssertionSemaphore.wait()
-
-    guard isTaskAsserted else {
-        throw TaskAssertionError()
+    return try await withTaskCancellationHandler {
+        try await task.value
+    } onCancel: {
+        task.cancel()
     }
-
-    ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Start")
-    defer {
-        ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Finished with cancelled: \(Task.isCancelled)")
-    }
-
-    return try body()
     #else
     #if os(macOS)
     let token = ProcessInfo.processInfo.beginActivity(
@@ -124,6 +111,23 @@ public func withExtendedBackgroundExecution<T>(
     }
     #endif
 
-    return try body()
+    return try await ExtendedBackgroundExecution.$isInExtendedBackgroundExecution.withValue(true) {
+        try await body()
+    }
     #endif
+}
+
+@Sendable @inlinable
+public func withExtendedBackgroundExecution<T>(
+    function: String = #function,
+    fileID: String = #fileID,
+    line: Int = #line,
+    priority: TaskPriority? = nil,
+    body: @escaping () async throws -> T
+) async throws -> T {
+    try await withExtendedBackgroundExecution(
+        identifier: "\(function) (\(fileID):\(line))",
+        priority: priority,
+        body: body
+    )
 }
