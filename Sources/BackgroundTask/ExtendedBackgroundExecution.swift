@@ -63,13 +63,23 @@ public func withExtendedBackgroundExecution<T>(
 
     let task: Task<T, Error> = try await withCheckedThrowingContinuation { continuation in
         var currentTask: Task<T, Error>?
+        let dispatchSemaphore = DispatchSemaphore(value: 1)
 
         ProcessInfo.processInfo.performExpiringActivity(withReason: identifier) { expired in
+            dispatchSemaphore.wait()
+
             switch (currentTask, expired) {
             case (nil, true):
+                ExtendedBackgroundExecution.log(level: .warning, identifier: identifier, "Task assertion failed.")
+
+                dispatchSemaphore.signal()
                 continuation.resume(throwing: TaskAssertionError())
             case (nil, false):
                 ExtendedBackgroundExecution.log(level: .info, identifier: identifier, "Start expiring activity")
+                defer {
+                    ExtendedBackgroundExecution.log(level: .info, identifier: identifier, "Expiring activity finished")
+                }
+
                 let task = Task<T, Error>(priority: taskPriority) {
                     ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Start")
                     defer {
@@ -80,15 +90,20 @@ public func withExtendedBackgroundExecution<T>(
                         try await body()
                     }
                 }
+
                 currentTask = task
+                dispatchSemaphore.signal()
                 continuation.resume(returning: task)
                 task.waitUntilFinished()
-                ExtendedBackgroundExecution.log(level: .info, identifier: identifier, "Expiring activity finished")
             case (.some(let currentTask), true):
                 ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Expiring activity expired")
+                defer {
+                    ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Expiring activity expirationHandler finished")
+                }
+
+                dispatchSemaphore.signal()
                 currentTask.cancel()
                 currentTask.waitUntilFinished()
-                ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Expiring activity expirationHandler finished")
             default:
                 fatalError()
             }
