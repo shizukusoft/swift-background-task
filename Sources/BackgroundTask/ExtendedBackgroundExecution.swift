@@ -13,24 +13,22 @@ import UnifiedLogging
 import os
 #endif
 
-public struct TaskAssertionError: Error {
-    public init() {}
+struct ExtendedBackgroundExecution {
+    @TaskLocal static var isInExtendedBackgroundExecution: Bool = false
 }
-
-struct ExtendedBackgroundExecution { }
 
 extension ExtendedBackgroundExecution {
     #if canImport(os)
-    static let log = OSLog(subsystem: moduleIdentifier, category: "extended-background-execution")
+    fileprivate static let log = OSLog(subsystem: moduleIdentifier, category: "extended-background-execution")
 
     @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
-    static let logger = Logger(log)
+    fileprivate static let logger = Logger(log)
     #else
-    static let logger = Logger(label: moduleIdentifier, category: "extended-background-execution")
+    fileprivate static let logger = Logger(label: moduleIdentifier, category: "extended-background-execution")
     #endif
 
     #if canImport(os)
-    static func log(level: OSLogType, identifier: String, _ message: String) {
+    fileprivate static func log(level: OSLogType, identifier: String, _ message: String) {
         if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
             logger.log(level: level, "\(identifier, privacy: .public): \(message, privacy: .public)")
         } else {
@@ -38,14 +36,10 @@ extension ExtendedBackgroundExecution {
         }
     }
     #else
-    static func log(level: Logger.LogLevel, identifier: String, _ message: String) {
+    fileprivate static func log(level: Logger.LogLevel, identifier: String, _ message: String) {
         logger.log(level: level, "\(identifier): \(message)")
     }
     #endif
-}
-
-extension ExtendedBackgroundExecution {
-    @TaskLocal static var isInExtendedBackgroundExecution: Bool = false
 }
 
 @Sendable
@@ -54,66 +48,20 @@ public func withExtendedBackgroundExecution<T>(
     priority: TaskPriority? = nil,
     body: @escaping () async throws -> T
 ) async throws -> T {
+    ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Start")
+    defer {
+        ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Finished with cancelled: \(Task.isCancelled)")
+    }
+
     guard ExtendedBackgroundExecution.isInExtendedBackgroundExecution == false else {
         return try await body()
     }
 
     #if os(iOS) || os(watchOS) || os(tvOS)
-    let taskPriority = Task.currentPriority
-
-    let task: Task<T, Error> = try await withCheckedThrowingContinuation { continuation in
-        var currentTask: Task<T, Error>?
-        let dispatchSemaphore = DispatchSemaphore(value: 1)
-
-        ProcessInfo.processInfo.performExpiringActivity(withReason: identifier) { expired in
-            dispatchSemaphore.wait()
-
-            switch (currentTask, expired) {
-            case (nil, true):
-                ExtendedBackgroundExecution.log(level: .warning, identifier: identifier, "Task assertion failed.")
-
-                dispatchSemaphore.signal()
-                continuation.resume(throwing: TaskAssertionError())
-            case (nil, false):
-                ExtendedBackgroundExecution.log(level: .info, identifier: identifier, "Start expiring activity")
-                defer {
-                    ExtendedBackgroundExecution.log(level: .info, identifier: identifier, "Expiring activity finished")
-                }
-
-                let task = Task<T, Error>(priority: taskPriority) {
-                    ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Start")
-                    defer {
-                        ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Finished with cancelled: \(Task.isCancelled)")
-                    }
-
-                    return try await ExtendedBackgroundExecution.$isInExtendedBackgroundExecution.withValue(true) {
-                        try await body()
-                    }
-                }
-
-                currentTask = task
-                dispatchSemaphore.signal()
-                continuation.resume(returning: task)
-                task.waitUntilFinished()
-            case (.some(let currentTask), true):
-                ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Expiring activity expired")
-                defer {
-                    ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Expiring activity expirationHandler finished")
-                }
-
-                dispatchSemaphore.signal()
-                currentTask.cancel()
-                currentTask.waitUntilFinished()
-            default:
-                fatalError()
-            }
+    return try await ProcessInfo.processInfo.performExpiringActivity(reason: identifier) {
+        try await ExtendedBackgroundExecution.$isInExtendedBackgroundExecution.withValue(true) {
+            try await body()
         }
-    }
-
-    return try await withTaskCancellationHandler {
-        try await task.value
-    } onCancel: {
-        task.cancel()
     }
     #else
     #if os(macOS)
