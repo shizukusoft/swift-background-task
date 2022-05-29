@@ -48,9 +48,9 @@ public func withExtendedBackgroundExecution<T>(
     priority: TaskPriority? = nil,
     body: @escaping () async throws -> T
 ) async throws -> T {
-    ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Start")
+    ExtendedBackgroundExecution.log(level: .notice, identifier: identifier, "Start")
     defer {
-        ExtendedBackgroundExecution.log(level: .default, identifier: identifier, "Finished with cancelled: \(Task.isCancelled)")
+        ExtendedBackgroundExecution.log(level: .notice, identifier: identifier, "Finished with cancelled: \(Task.isCancelled)")
     }
 
     guard ExtendedBackgroundExecution.isInExtendedBackgroundExecution == false else {

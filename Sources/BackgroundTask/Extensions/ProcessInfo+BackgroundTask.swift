@@ -64,9 +64,9 @@ extension ProcessInfo {
                     continuation.resume(returning: task)
                     task.waitUntilFinished()
                 case (.some(let currentTask), true):
-                    Self.log(level: .default, identifier: reason, "Expiring activity expired")
+                    Self.log(level: .notice, identifier: reason, "Expiring activity expired")
                     defer {
-                        Self.log(level: .default, identifier: reason, "Expiring activity expirationHandler finished")
+                        Self.log(level: .notice, identifier: reason, "Expiring activity expirationHandler finished")
                     }
 
                     dispatchSemaphore.signal()
