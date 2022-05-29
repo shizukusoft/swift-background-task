@@ -5,7 +5,7 @@
 //  Created by Jaehong Kang on 2022/05/29.
 //
 
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+#if os(iOS) || os(watchOS) || os(tvOS)
 
 import Foundation
 import UnifiedLogging
@@ -33,7 +33,6 @@ extension ProcessInfo {
 }
 
 extension ProcessInfo {
-    @available(iOS 8.2, tvOS 9.0, watchOS 2.0, *)
     public func performExpiringActivity<T>(reason: String, body: @escaping () async throws -> T) async throws -> T {
         let taskPriority = Task.currentPriority
 
