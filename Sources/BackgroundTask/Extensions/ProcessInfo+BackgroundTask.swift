@@ -34,7 +34,13 @@ extension ProcessInfo {
 
 extension ProcessInfo {
     private class ExpiringActivity<Success: Sendable, Failure: Error> {
-        let dispatchQueue = DispatchQueue(label: String(reflecting: ProcessInfo.ExpiringActivity<Success, Failure>.self), qos: .unspecified, attributes: [], autoreleaseFrequency: .inherit, target: nil)
+        let dispatchQueue = DispatchQueue(
+            label: String(reflecting: ProcessInfo.ExpiringActivity<Success, Failure>.self),
+            qos: .unspecified,
+            attributes: [],
+            autoreleaseFrequency: .inherit,
+            target: nil
+        )
 
         var task: Task<Success, Failure>?
     }
