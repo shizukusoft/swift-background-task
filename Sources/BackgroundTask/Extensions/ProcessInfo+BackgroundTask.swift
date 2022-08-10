@@ -52,7 +52,7 @@ extension ProcessInfo {
             let expiringActivity = ExpiringActivity<T, Error>()
 
             ProcessInfo.processInfo.performExpiringActivity(withReason: reason) { expired in
-                let taskToWait: Task<T, Error>? = expiringActivity.dispatchQueue.sync(flags: [.assignCurrentContext]) {
+                let taskToWait: Task<T, Error>? = expiringActivity.dispatchQueue.sync {
                     switch (expiringActivity.task, expired) {
                     case (nil, true):
                         Self.log(level: .warning, identifier: reason, "Task assertion failed.")
