@@ -33,48 +33,48 @@ extension ProcessInfo {
 }
 
 extension ProcessInfo {
+    private class ExpiringActivity<Success: Sendable, Failure: Error> {
+        let dispatchSemaphore = DispatchSemaphore(value: 1)
+
+        var task: Task<Success, Failure>?
+    }
+
     public func performExpiringActivity<T>(reason: String, body: @escaping () async throws -> T) async throws -> T {
         let taskPriority = Task.currentPriority
 
         let task: Task<T, Error> = try await withCheckedThrowingContinuation { continuation in
-            var currentTask: Task<T, Error>?
-            let dispatchSemaphore = DispatchSemaphore(value: 1)
+            let expiringActivity = ExpiringActivity<T, Error>()
 
             ProcessInfo.processInfo.performExpiringActivity(withReason: reason) { expired in
-                dispatchSemaphore.wait()
+                expiringActivity.dispatchSemaphore.wait()
 
-                switch (currentTask, expired) {
+                switch (expiringActivity.task, expired) {
                 case (nil, true):
                     Self.log(level: .warning, identifier: reason, "Task assertion failed.")
 
-                    dispatchSemaphore.signal()
                     continuation.resume(throwing: TaskAssertionError())
                 case (nil, false):
-                    Self.log(level: .info, identifier: reason, "Start expiring activity")
-                    defer {
-                        Self.log(level: .info, identifier: reason, "Expiring activity finished")
-                    }
-
                     let task = Task<T, Error>(priority: taskPriority) {
-                        try await body()
+                        Self.log(level: .info, identifier: reason, "Start expiring activity")
+                        defer {
+                            Self.log(level: .info, identifier: reason, "Expiring activity finished")
+                        }
+
+                        return try await body()
                     }
 
-                    currentTask = task
-                    dispatchSemaphore.signal()
+                    expiringActivity.task = task
                     continuation.resume(returning: task)
-                    task.waitUntilFinished()
-                case (.some(let currentTask), true):
+                case (.some(let task), true):
                     Self.log(level: .notice, identifier: reason, "Expiring activity expired")
-                    defer {
-                        Self.log(level: .notice, identifier: reason, "Expiring activity expirationHandler finished")
-                    }
 
-                    dispatchSemaphore.signal()
-                    currentTask.cancel()
-                    currentTask.waitUntilFinished()
-                default:
+                    task.cancel()
+                case (.some(_), false):
                     fatalError()
                 }
+
+                expiringActivity.dispatchSemaphore.signal()
+                expiringActivity.task?.waitUntilFinished()
             }
         }
 
