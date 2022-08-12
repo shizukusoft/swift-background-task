@@ -33,16 +33,12 @@ extension ProcessInfo {
 }
 
 extension ProcessInfo {
-    private class ExpiringActivity<Success: Sendable, Failure: Error> {
-        let dispatchQueue = DispatchQueue(
-            label: String(reflecting: ProcessInfo.ExpiringActivity<Success, Failure>.self),
-            qos: .unspecified,
-            attributes: [],
-            autoreleaseFrequency: .inherit,
-            target: nil
-        )
-
+    private actor ExpiringActivity<Success: Sendable, Failure: Error> {
         var task: Task<Success, Failure>?
+
+        func run<T>(resultType: T.Type = T.self, body: @Sendable (isolated ExpiringActivity<Success, Failure>) throws -> T) async rethrows -> T where T : Sendable {
+            try body(self)
+        }
     }
 
     public func performExpiringActivity<T>(reason: String, body: @escaping () async throws -> T) async throws -> T {
@@ -52,40 +48,42 @@ extension ProcessInfo {
             let expiringActivity = ExpiringActivity<T, Error>()
 
             ProcessInfo.processInfo.performExpiringActivity(withReason: reason) { expired in
-                let taskToWait: Task<T, Error>? = expiringActivity.dispatchQueue.sync {
-                    switch (expiringActivity.task, expired) {
-                    case (nil, true):
-                        Self.log(level: .warning, identifier: reason, "Task assertion failed.")
+                Task {
+                    let taskToWait: Task<T, Error>? = await expiringActivity.run {
+                        switch ($0.task, expired) {
+                        case (nil, true):
+                            Self.log(level: .warning, identifier: reason, "Task assertion failed.")
 
-                        continuation.resume(throwing: TaskAssertionError())
+                            continuation.resume(throwing: TaskAssertionError())
 
-                        return nil
-                    case (nil, false):
-                        let task = Task<T, Error>(priority: taskPriority) {
-                            Self.log(level: .info, identifier: reason, "Start expiring activity")
-                            defer {
-                                Self.log(level: .info, identifier: reason, "Expiring activity finished")
+                            return nil
+                        case (nil, false):
+                            let task = Task<T, Error>(priority: taskPriority) {
+                                Self.log(level: .info, identifier: reason, "Start expiring activity")
+                                defer {
+                                    Self.log(level: .info, identifier: reason, "Expiring activity finished")
+                                }
+
+                                return try await body()
                             }
 
-                            return try await body()
+                            $0.task = task
+                            continuation.resume(returning: task)
+
+                            return task
+                        case (.some(let task), true):
+                            Self.log(level: .notice, identifier: reason, "Expiring activity expired")
+
+                            task.cancel()
+
+                            return task
+                        case (.some, false):
+                            fatalError()
                         }
-
-                        expiringActivity.task = task
-                        continuation.resume(returning: task)
-
-                        return task
-                    case (.some(let task), true):
-                        Self.log(level: .notice, identifier: reason, "Expiring activity expired")
-
-                        task.cancel()
-
-                        return task
-                    case (.some, false):
-                        fatalError()
                     }
-                }
 
-                taskToWait?.waitUntilFinished()
+                    await taskToWait?.waitUntilFinished()
+                }.waitUntilFinished()
             }
         }
 
