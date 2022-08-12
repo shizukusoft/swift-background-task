@@ -17,7 +17,7 @@ extension Task {
     public func waitUntilFinished() {
         let semaphore = DispatchSemaphore(value: 0)
 
-        Task<Void, Never>.detached {
+        Task<Void, Never>.detached(priority: Task<Never, Never>.currentPriority) {
             await waitUntilFinished()
             semaphore.signal()
         }
