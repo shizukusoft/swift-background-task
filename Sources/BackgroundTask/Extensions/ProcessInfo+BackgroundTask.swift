@@ -36,7 +36,10 @@ extension ProcessInfo {
     private actor ExpiringActivity<Success: Sendable, Failure: Error> {
         var task: Task<Success, Failure>?
 
-        func run<T>(resultType: T.Type = T.self, body: @Sendable (isolated ExpiringActivity<Success, Failure>) throws -> T) async rethrows -> T where T : Sendable {
+        func run<T>(
+            resultType: T.Type = T.self,
+            body: @Sendable (isolated ExpiringActivity<Success, Failure>) throws -> T
+        ) async rethrows -> T where T: Sendable {
             try body(self)
         }
     }
