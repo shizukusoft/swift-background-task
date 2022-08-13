@@ -34,7 +34,7 @@ extension ProcessInfo {
 
 extension ProcessInfo {
     private actor ExpiringActivity<Success: Sendable, Failure: Error> {
-        var task: Task<Success, Failure>?
+        var taskAssertionResult: Result<Task<Success, Failure>, TaskAssertionError>?
 
         func run<T>(
             resultType: T.Type = T.self,
@@ -52,12 +52,15 @@ extension ProcessInfo {
 
             ProcessInfo.processInfo.performExpiringActivity(withReason: reason) { expired in
                 Task {
-                    let taskToWait: Task<T, Error>? = await expiringActivity.run {
-                        switch ($0.task, expired) {
+                    let taskToWait: Task<T, Error>? = await expiringActivity.run { expiringActivity in
+                        switch (expiringActivity.taskAssertionResult, expired) {
                         case (nil, true):
                             Self.log(level: .warning, identifier: reason, "Task assertion failed.")
 
-                            continuation.resume(throwing: TaskAssertionError())
+                            let error = TaskAssertionError()
+
+                            expiringActivity.taskAssertionResult = .failure(error)
+                            continuation.resume(throwing: error)
 
                             return nil
                         case (nil, false):
@@ -70,16 +73,18 @@ extension ProcessInfo {
                                 return try await body()
                             }
 
-                            $0.task = task
+                            expiringActivity.taskAssertionResult = .success(task)
                             continuation.resume(returning: task)
 
                             return task
-                        case (.some(let task), true):
+                        case (.some(.success(let task)), true):
                             Self.log(level: .notice, identifier: reason, "Expiring activity expired")
 
                             task.cancel()
 
                             return task
+                        case (.some(.failure), true):
+                            return nil
                         case (.some, false):
                             fatalError()
                         }
