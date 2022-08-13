@@ -84,6 +84,8 @@ extension ProcessInfo {
 
                             return task
                         case (.some(.failure), true):
+                            Self.log(level: .notice, identifier: reason, "Expiring activity expired without task")
+
                             return nil
                         case (.some, false):
                             fatalError()
