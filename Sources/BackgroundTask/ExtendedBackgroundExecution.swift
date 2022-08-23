@@ -74,9 +74,12 @@ public func withExtendedBackgroundExecution<T>(
     }
     #endif
 
-    return try await ExtendedBackgroundExecution.$isInExtendedBackgroundExecution.withValue(true) {
+    // https://github.com/apple/swift/blob/01cad12afcbc3da159c132ff3e3e4d6477ff5ddf/stdlib/public/Concurrency/TaskLocal.cpp#L248-L286
+    async let value = ExtendedBackgroundExecution.$isInExtendedBackgroundExecution.withValue(true) {
         try await body()
     }
+
+    return try await value
     #endif
 }
 
