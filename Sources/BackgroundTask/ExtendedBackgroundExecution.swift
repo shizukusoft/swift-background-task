@@ -19,12 +19,12 @@ struct ExtendedBackgroundExecution {
 
 extension ExtendedBackgroundExecution {
     #if canImport(os)
-    fileprivate static let log = OSLog(subsystem: moduleIdentifier, category: "extended-background-execution")
+    fileprivate static let log = OSLog(subsystem: moduleIdentifier, category: String(reflecting: ExtendedBackgroundExecution.self))
 
     @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
     fileprivate static let logger = Logger(log)
     #else
-    fileprivate static let logger = Logger(label: moduleIdentifier, category: "extended-background-execution")
+    fileprivate static let logger = Logger(label: moduleIdentifier, category: String(reflecting: ExtendedBackgroundExecution.self))
     #endif
 
     #if canImport(os)

@@ -18,7 +18,7 @@ extension ProcessInfo {
 }
 
 extension ProcessInfo {
-    private static let log = OSLog(subsystem: moduleIdentifier, category: String(reflecting: ProcessInfo.self))
+    private static let log = OSLog(subsystem: moduleIdentifier, category: "\(moduleName).\(String(reflecting: ProcessInfo.self))")
 
     @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
     private static let logger = Logger(log)
