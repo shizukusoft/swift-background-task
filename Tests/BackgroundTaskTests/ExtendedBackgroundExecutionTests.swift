@@ -79,7 +79,7 @@ class ExtendedBackgroundExecutionTests: XCTestCase {
 
         XCTAssertEqual(ExtendedBackgroundExecution.isInExtendedBackgroundExecution, false)
 
-        try await withThrowingTaskGroup(of: Void.self) { taskGroup in
+        try await withThrowingTaskGroup(of: Void.self) { _ in
             XCTAssertEqual(ExtendedBackgroundExecution.isInExtendedBackgroundExecution, false)
 
             try await withExtendedBackgroundExecution {
