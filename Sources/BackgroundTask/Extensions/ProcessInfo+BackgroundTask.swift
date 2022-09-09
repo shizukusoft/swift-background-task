@@ -42,7 +42,7 @@ extension ProcessInfo {
             target: nil
         )
 
-        private var _isTaskAsserted: Bool?
+        private var _isTaskAsserted: Bool? = nil
 
         var isTaskAsserted: Bool? {
             get {
@@ -83,16 +83,14 @@ extension ProcessInfo {
             switch (expiringActivity.isTaskAsserted, expired) {
             case (nil, true):
                 Self.log(level: .warning, identifier: reason, "Task assertion failed.")
-
                 expiringActivity.isTaskAsserted = false
             case (nil, false):
                 expiringActivity.isTaskAsserted = true
-
                 task.waitUntilFinished()
             case (.some, true):
                 task.cancel()
             case (.some, false):
-                fatalError()
+                task.waitUntilFinished()
             }
         }
 
