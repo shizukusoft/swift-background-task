@@ -42,7 +42,7 @@ extension ProcessInfo {
             target: nil
         )
 
-        private var _isTaskAsserted: Bool? = nil
+        private var _isTaskAsserted: Bool?
 
         var isTaskAsserted: Bool? {
             get {
