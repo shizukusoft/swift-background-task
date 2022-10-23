@@ -9,6 +9,22 @@ import XCTest
 @testable import BackgroundTask
 
 class ExtendedBackgroundExecutionTests: XCTestCase {
+    func testExtendedBackgroundExecution() async throws {
+        let expectation = XCTestExpectation()
+        expectation.assertForOverFulfill = true
+        let timeout = 10.0
+
+        try await withExtendedBackgroundExecution {
+            try await Task.sleep(nanoseconds: UInt64(timeout) * NSEC_PER_SEC)
+
+            try Task.checkCancellation()
+
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: timeout)
+    }
+
     func testAsyncFunc() async throws {
         let expectation = XCTestExpectation()
 
