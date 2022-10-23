@@ -9,13 +9,17 @@ import XCTest
 @testable import BackgroundTask
 
 class ExtendedBackgroundExecutionTests: XCTestCase {
+    static var nanosecondsInOneSecond: UInt64 {
+        1_000_000_000
+    }
+
     func testExtendedBackgroundExecution() async throws {
         let expectation = XCTestExpectation()
         expectation.assertForOverFulfill = true
         let timeout = 10.0
 
         try await withExtendedBackgroundExecution {
-            try await Task.sleep(nanoseconds: UInt64(timeout) * NSEC_PER_SEC)
+            try await Task.sleep(nanoseconds: UInt64(timeout) * Self.nanosecondsInOneSecond)
 
             try Task.checkCancellation()
 
