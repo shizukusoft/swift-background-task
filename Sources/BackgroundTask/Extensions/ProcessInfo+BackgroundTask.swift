@@ -53,7 +53,7 @@ extension ProcessInfo {
                     }
                 }
             } else {
-                let isTaskAssertedValues = AsyncStream { continuation in
+                let isTaskAssertedValues = AsyncStream(Bool?.self) { continuation in
                     Task {
                         let cancellable = await expiringActivity.$isTaskAsserted
                             .sink { _ in
