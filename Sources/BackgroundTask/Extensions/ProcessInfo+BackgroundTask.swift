@@ -53,9 +53,25 @@ extension ProcessInfo {
                     }
                 }
             } else {
-                while await expiringActivity.isTaskAsserted == nil {
-                    try Task.checkCancellation()
-                    await Task.yield()
+                let isTaskAssertedValues = AsyncStream { continuation in
+                    Task {
+                        let cancellable = await expiringActivity.$isTaskAsserted
+                            .sink { _ in
+                                continuation.finish()
+                            } receiveValue: { (isTaskAsserted: Bool?) in
+                                continuation.yield(isTaskAsserted)
+                            }
+
+                        continuation.onTermination = { _ in
+                            cancellable.cancel()
+                        }
+                    }
+                }
+
+                for await isTaskAsserted in isTaskAssertedValues {
+                    guard isTaskAsserted == nil else {
+                        break
+                    }
                 }
             }
 
