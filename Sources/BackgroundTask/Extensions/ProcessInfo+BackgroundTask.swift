@@ -48,8 +48,8 @@ extension ProcessInfo {
         let task: Task<T, Error> = Task {
             if #available(iOS 15.0, watchOS 8.0, tvOS 15.0, *) {
                 for await isTaskAsserted in await expiringActivity.$isTaskAsserted.values {
-                    guard isTaskAsserted != nil else {
-                        continue
+                    guard isTaskAsserted == nil else {
+                        break
                     }
                 }
             } else {
