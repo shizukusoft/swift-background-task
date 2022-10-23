@@ -37,7 +37,7 @@ extension ProcessInfo {
     private actor ExpiringActivity {
         @Published var isTaskAsserted: Bool?
 
-        func run<T>(resultType: T.Type = T.self, body: @Sendable (isolated ExpiringActivity) throws -> T) async rethrows -> T where T : Sendable {
+        func run<T>(resultType: T.Type = T.self, body: @Sendable (isolated ExpiringActivity) throws -> T) async rethrows -> T where T: Sendable {
             try body(self)
         }
     }
