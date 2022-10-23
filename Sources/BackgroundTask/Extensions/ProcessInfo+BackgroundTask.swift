@@ -9,6 +9,7 @@
 
 import Foundation
 import UnifiedLogging
+import Combine
 import os
 
 extension ProcessInfo {
@@ -33,28 +34,11 @@ extension ProcessInfo {
 }
 
 extension ProcessInfo {
-    private class ExpiringActivity {
-        private let dispatchQueue = DispatchQueue(
-            label: String(reflecting: ExpiringActivity.self),
-            qos: .unspecified,
-            attributes: [.concurrent],
-            autoreleaseFrequency: .inherit,
-            target: nil
-        )
+    private actor ExpiringActivity {
+        @Published var isTaskAsserted: Bool?
 
-        private var _isTaskAsserted: Bool?
-
-        var isTaskAsserted: Bool? {
-            get {
-                dispatchQueue.sync {
-                    _isTaskAsserted
-                }
-            }
-            set {
-                dispatchQueue.sync(flags: [.barrier]) {
-                    _isTaskAsserted = newValue
-                }
-            }
+        func run<T>(resultType: T.Type = T.self, body: @Sendable (isolated ExpiringActivity) throws -> T) async rethrows -> T where T : Sendable {
+            try body(self)
         }
     }
 
@@ -62,12 +46,20 @@ extension ProcessInfo {
         let expiringActivity = ExpiringActivity()
 
         let task: Task<T, Error> = Task {
-            while expiringActivity.isTaskAsserted == nil {
-                try Task.checkCancellation()
-                await Task.yield()
+            if #available(iOS 15.0, watchOS 8.0, tvOS 15.0, *) {
+                for await isTaskAsserted in await expiringActivity.$isTaskAsserted.values {
+                    guard isTaskAsserted != nil else {
+                        continue
+                    }
+                }
+            } else {
+                while await expiringActivity.isTaskAsserted == nil {
+                    try Task.checkCancellation()
+                    await Task.yield()
+                }
             }
 
-            guard expiringActivity.isTaskAsserted == true else {
+            guard await expiringActivity.isTaskAsserted == true else {
                 throw TaskAssertionError()
             }
 
@@ -80,18 +72,23 @@ extension ProcessInfo {
         }
 
         ProcessInfo.processInfo.performExpiringActivity(withReason: reason) { expired in
-            switch (expiringActivity.isTaskAsserted, expired) {
-            case (nil, true):
-                Self.log(level: .warning, identifier: reason, "Task assertion failed.")
-                expiringActivity.isTaskAsserted = false
-            case (nil, false):
-                expiringActivity.isTaskAsserted = true
-                task.waitUntilFinished()
-            case (.some, true):
-                task.cancel()
-            case (.some, false):
-                task.waitUntilFinished()
-            }
+            Task {
+                await expiringActivity.run { expiringActivity in
+                    switch (expiringActivity.isTaskAsserted, expired) {
+                    case (nil, true):
+                        Self.log(level: .warning, identifier: reason, "Task assertion failed.")
+                        expiringActivity.isTaskAsserted = false
+                    case (nil, false):
+                        expiringActivity.isTaskAsserted = true
+                    case (.some, true):
+                        task.cancel()
+                    case (.some, false):
+                        break
+                    }
+                }
+            }.waitUntilFinished()
+
+            task.waitUntilFinished()
         }
 
         return try await withTaskCancellationHandler {
